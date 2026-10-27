@@ -388,6 +388,31 @@
     return './room.html?room_id=' + (roomtype && roomtype.id);
   };
 
+  // ── 객실 미리보기(layout-map) 사용 여부 ──────────────────
+  // layout-map.html 이 404 로 보내는 기준과 같아야 한다.
+  // 섹션이 없거나 enabled=false 면 그 페이지는 열리지 않는다.
+  BaseDataMapper.prototype.isLayoutMapEnabled = function () {
+    var page = this.getPages().layoutMap;
+    var section = page && page.sections && page.sections[0];
+    return Boolean(section) && section.enabled !== false;
+  };
+
+  // 대메뉴 ROOMS 가 갈 곳.
+  //   미리보기 켜짐 → layout-map.html (객실 배치도)
+  //   미리보기 꺼짐 → 첫 번째 객실 상세 (헤더 객실 메뉴의 첫 항목과 같은 곳)
+  // 객실이 하나도 없으면 갈 곳이 없으므로 null — 호출부가 원래 href 를 둔다.
+  BaseDataMapper.prototype.getRoomsEntryLink = function () {
+    if (this.isLayoutMapEnabled()) return './layout-map.html';
+    var self = this;
+    var link = null;
+    this.getRoomMenuItems().some(function (item) {
+      if (!String(self.getRoomMenuLabel(item)).trim()) return false;
+      link = self.getRoomMenuLink(item);
+      return true;
+    });
+    return link;
+  };
+
   BaseDataMapper.prototype.isRoomMenuItemActive = function (item, currentId) {
     if (!item || !currentId) return false;
     return (item.roomtypes || []).some(function (rt) {
@@ -691,8 +716,12 @@
         li.remove();
       });
 
+      // 첫 li 는 "미리보기"(layout-map) 다. 미리보기가 꺼져 있으면 눌러도 404 이므로 숨긴다.
       var first = ul.querySelector('li');
-      if (first) first.className = currentId ? '' : 'on';
+      if (first) {
+        first.className = currentId ? '' : 'on';
+        first.style.display = self.isLayoutMapEnabled() ? '' : 'none';
+      }
 
       // 현재 객실이 속한 그룹(멤버 2실 이상)을 찾는다
       var group = null;

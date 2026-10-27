@@ -275,12 +275,23 @@
   };
 
   // MAPPER: pages.layoutMap / nearbyAttractions enabled → 메뉴 표시/숨김
+  //
+  // 미리보기가 꺼지면 "미리보기" li 를 숨기고, 대메뉴 ROOMS([data-rooms-link])는
+  // 첫 번째 객실 상세로 보낸다 — 그대로 두면 layout-map.html 이 404 로 튕긴다.
+  // 판정은 layout-map.html 의 404 기준과 같은 isLayoutMapEnabled() 를 쓴다.
   HeaderFooterMapper.prototype.mapPageToggles = function () {
-    var layoutMapEnabled = this.isPageEnabled('layoutMap');
+    var layoutMapEnabled = this.isLayoutMapEnabled();
     document.querySelectorAll('[data-menu-id="layout-map"]').forEach(function (el) {
       var li = el.closest('li') || el;
       li.style.display = layoutMapEnabled ? '' : 'none';
     });
+
+    var roomsLink = this.getRoomsEntryLink();
+    if (roomsLink) {
+      document.querySelectorAll('[data-rooms-link]').forEach(function (el) {
+        el.setAttribute('href', roomsLink);
+      });
+    }
 
     var nearbyEnabled = this.isPageEnabled('nearbyAttractions');
     document.querySelectorAll('[data-travel-menu]').forEach(function (el) {
@@ -343,8 +354,30 @@
     });
   };
 
+  // MAPPER: customFields.footer.ruralStayMark → [data-footer-rural-stay-mark] (푸터 맨 위, 전화번호 위)
+  // 농어촌민박사업자 이미지가 있을 때만 노출하고, 없으면 숨겨 기존 푸터와 같다.
+  // 프리뷰는 같은 페이지에서 다시 매핑하므로 매번 표시 상태를 되돌린다.
+  HeaderFooterMapper.prototype.mapRuralStayMark = function () {
+    var footer = this.getCustomFields().footer || {};
+    var mark = footer.ruralStayMark;
+    var markUrl = mark && mark.url ? String(mark.url) : '';
+
+    document.querySelectorAll('[data-footer-rural-stay-mark-wrap]').forEach(function (wrap) {
+      wrap.style.display = markUrl ? '' : 'none';
+    });
+    document.querySelectorAll('[data-footer-rural-stay-mark]').forEach(function (img) {
+      if (!markUrl) {
+        img.removeAttribute('src');
+        return;
+      }
+      img.src = markUrl;
+      img.alt = (mark.description && String(mark.description).trim()) || '농어촌민박사업자';
+    });
+  };
+
   HeaderFooterMapper.prototype.mapFooter = function () {
     this.mapCopyright();
+    this.mapRuralStayMark();
     var prop = this.getProperty();
     var biz = prop.businessInfo || {};
     var phones = this.toPhoneList(prop.contactPhone);
