@@ -21,6 +21,7 @@
 
   IndexMapper.prototype.mapPage = function () {
     this.mapPropertyNames();
+    this.mapIntroVideo();
     this.mapHero();
     this.mapBanner('bnr01', 'essence');
     this.mapBanner('bnr02', 'signature');
@@ -39,6 +40,7 @@
   //   hero      → .main_visual   (히어로 슬라이더 + 문구)
   //   essence   → .main_bnr01    (이미지 배너 1)
   //   signature → .main_bnr02    (이미지 배너 2)
+  //               + .vimeoWrap   (인트로 영상 밴드 — videos/mediaType 만 겸용, mapIntroVideo 참고)
   //   gallery   → .main_about    (숙소 소개 + 슬라이더)
   //   closing   → .main_wide_bg  (마무리 문구 + 고정 배경)
   //
@@ -53,6 +55,29 @@
     setAllText('[data-property-name-en]', this.getPropertyNameEn());
     setAllText('[data-property-name]', this.getPropertyName());
     this.applyPropertyCaptions();
+  };
+
+  // MAPPER: signature.videos[0] → .vimeoWrap 인트로 영상 밴드 (히어로 위)
+  // mediaType 이 'video' 일 때만 연다. 영상이 없으면 .vimeoWrap 째 숨긴다 —
+  // <video> 만 비우면 브라우저가 빈 플레이어(컨트롤 바)를 그려 히어로 위에 검은 띠가 남는다.
+  // signature 의 title/description/images 는 .main_bnr02 배너가 그대로 쓴다.
+  // hero 는 영상 유무와 무관하게 히어로 슬라이더 전용으로 그대로 둔다.
+  IndexMapper.prototype.mapIntroVideo = function () {
+    var signature = this.getSection().signature || {};
+    var url =
+      signature.mediaType === 'video' ? this.getFirstSelectedImage(signature.videos || []) : '';
+
+    document.querySelectorAll('[data-index-hero-video-wrap]').forEach(function (wrap) {
+      wrap.style.display = url ? '' : 'none';
+    });
+    document.querySelectorAll('[data-index-hero-video]').forEach(function (video) {
+      if (!url) {
+        video.removeAttribute('src');
+        return;
+      }
+      // 같은 URL 을 다시 넣으면 재생이 처음으로 돌아간다 (미리보기 재매핑 시)
+      if (video.getAttribute('src') !== url) video.src = url;
+    });
   };
 
   // MAPPER: hero → .main_visual
@@ -271,17 +296,11 @@
   // MAPPER: property.facilities[0..2] → .main_special ul
   //
   // 원본 카드 구조는 base 의 renderSpecialCards(li > a + .img > img + strong + p)와
-  // 달라서(li > a + .img_box[배경] + .txt_box > strong + p) 여기서 직접 만든다.
-  //   strong : 시설명
-  //   p      : 시설 설명 (CSS 가 앞에 '-' 를 붙이는 브랜드색 소개 줄)
+  // 달라서(li > a + .img_box[배경] + .txt_box > strong) 여기서 직접 만든다.
   //
-  // 원본은 strong 이 영문 카피(Close To The Beach), p 가 한글 한 줄 소개다.
-  // facilities[] 스키마에 영문명 필드가 없어 영문 카피를 만들 소스가 없으므로
-  // 한글 시설명을 제목 자리에 올리고, 원본의 정보 위계(큰 제목 + 소개 줄)를 지킨다.
-  //
-  // description 은 '잔잔하게 흐르는 강을 바라보며\n편안한 쉼의 순간을 느껴보세요.'
-  // 처럼 작성자가 줄바꿈까지 넣어 두는 값이라 nl2br 로 살린다.
-  // 그대로 흘리면 칸 폭에 맞춰 제멋대로 접혀 세 줄이 된다.
+  // **시설명(strong)만 넣는다.** 시설 설명(description)은 문장 길이가 제각각이라
+  // 카드 아래가 들쭉날쭉해지고, 메인에서는 카드 제목만으로 충분하다.
+  // 설명은 카드를 눌러 들어가는 facility.html 이 보여준다.
   //
   // 카드가 1~2개면 남는 칸이 생기므로 ul 에 data-count 를 내보내 CSS 가 가운데로 모은다.
   IndexMapper.prototype.mapSpecialList = function () {
@@ -299,7 +318,6 @@
       items.push({
         id: f.id,
         name: name,
-        desc: self.cleanText(f.description),
         url: self.getFirstSelectedImage(f.images || [])
       });
     });
@@ -329,14 +347,6 @@
       var strong = document.createElement('strong');
       strong.textContent = item.name;
       txtBox.appendChild(strong);
-
-      // 설명은 백오피스에서 비워 두는 경우가 흔하다. 있을 때만 줄을 만든다
-      // (CSS 가 :before 로 '-' 를 붙이므로 빈 p 를 남기면 '-' 만 뜬다).
-      if (item.desc) {
-        var p = document.createElement('p');
-        p.innerHTML = self.nl2br(item.desc);
-        txtBox.appendChild(p);
-      }
 
       li.appendChild(link);
       li.appendChild(imgBox);

@@ -16,11 +16,10 @@
   };
 
   LayoutMapMapper.prototype.mapPage = function () {
-    var section = this.getSection();
-
     // enabled=false (또는 섹션 자체가 없음) → 404 리다이렉트.
-    // 헤더의 "미리보기" li 도 header-footer-mapper 가 같은 기준으로 숨긴다.
-    if (!section || section.enabled === false) {
+    // 헤더의 "미리보기" li 숨김과 대메뉴 ROOMS 이동처(첫 객실 상세)도
+    // header-footer-mapper 가 같은 기준(isLayoutMapEnabled)으로 정한다.
+    if (!this.isLayoutMapEnabled()) {
       window.location.href = '404.html';
       return;
     }
